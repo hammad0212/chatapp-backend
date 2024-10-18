@@ -20,7 +20,7 @@ export async function registeruser(req, res) {
             email,
             password,
             pic,
-            //token:genrateToken(user.id)
+           // token:genrateToken(user._id)
         });
 
         const userSaved = await newUser.save();
@@ -40,14 +40,16 @@ export async function authuser(req, res) {
     }
     try {
         const user = await User.findOne({ email }); 
+        const token=await genrateToken(user.id)
         if (user && (await user.matchPassword(password))) {
             res.status(200).json({
-                _id: user._id,
+                _id: user.id,
                 name: user.name,
                 email: user.email,
                 pic: user.pic,
                 message: "User successfully logged in",
-                //token: genrateToken(user._id),
+                token:token
+               
             });
         } else {
             res.status(401).json({ error: "Invalid email or password" });
@@ -57,3 +59,16 @@ export async function authuser(req, res) {
         res.status(500).json({ error: "Internal Server Error" });
     }   
 }
+export async function allusers(req, res) {
+   const keyword=req.query.search
+   ?{
+       $or:[
+           {name:{$regex:req.query.search,$options:"i"}},
+           {email:{$regex:req.query.search,$options:"i"}},
+       ]
+   }
+   :{}
+   const users=await User.find(keyword).find({_id:{$ne:req.user._id}})
+   res.send(users)
+   }
+

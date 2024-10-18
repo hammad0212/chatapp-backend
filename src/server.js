@@ -16,6 +16,7 @@ app.use(express.json());
 app.use('/api/user',userRoutes)
 app.use(notFound)
 app.use(errorHandler)
+app.use("/api/chat",chatroutes)
 
 const PORT = process.env.PORT || 3000;
 app.listen(3000, () => {
