@@ -7,7 +7,6 @@ import { protect } from "../middelewear/auth.js";
 
  router.post("/", registeruser)
 router.get('/', protect,allusers)
-
 router.post("/login",authuser)
 export default router;
 
