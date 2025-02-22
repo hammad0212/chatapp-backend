@@ -4,14 +4,17 @@ import connectDB from "../confiq/db.js";
 
 export async function registeruser(req, res) {
     const { name, email, password, pic } = req.body;
+    console.log(req.body); // Add this line to debug
+
+
 
     if (!name || !email || !password) {
         return res.status(400).json({ error: "Please enter all the fields" });
     }
 
     try {
-        const user = await User.findOne({ email });
-        if (user) {
+        const existingUser = await User.findOne({ email });
+        if (existingUser) {
             return res.status(400).json({ error: "User already exists" });
         }
 
@@ -20,45 +23,45 @@ export async function registeruser(req, res) {
             email,
             password,
             pic,
-           // token:genrateToken(user._id)
         });
 
         const userSaved = await newUser.save();
         if (userSaved) {
-            res.status(201).json({ message: "User registered successfully" });
+            res.status(201).json({
+                _id: userSaved._id,
+                name: userSaved.name,
+                email: userSaved.email,
+                pic: userSaved.pic,
+                token: genrateToken(userSaved._id), // Use userSaved._id here
+                message: "User registered successfully",
+            });
         }
     } catch (error) {
-        console.log(error);
+        console.error(error);
         res.status(500).json({ error: "Internal Server Error" });
     }
 }
 
 export async function authuser(req, res) {
     const { email, password } = req.body;
-    if (!email || !password) {      
-        return res.status(400).json({ error: "Please enter all the fields" });
-    }
-    try {
-        const user = await User.findOne({ email }); 
-        const token=await genrateToken(user.id)
-        if (user && (await user.matchPassword(password))) {
-            res.status(200).json({
-                _id: user.id,
-                name: user.name,
-                email: user.email,
-                pic: user.pic,
-                message: "User successfully logged in",
-                token:token
-               
-            });
-        } else {
-            res.status(401).json({ error: "Invalid email or password" });
-        }
-    } catch (error) {
-        console.log(error);
-        res.status(500).json({ error: "Internal Server Error" });
-    }   
+
+  const user = await User.findOne({ email });
+
+  if (user && (await user.matchPassword(password))) {
+    res.json({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      isAdmin: user.isAdmin,
+      pic: user.pic,
+      token: genrateToken(user._id),
+    });
+  } else {
+    res.status(401);
+    throw new Error("Invalid Email or Password");
+  }   
 }
+
 export async function allusers(req, res) {
    const keyword=req.query.search
    ?{
