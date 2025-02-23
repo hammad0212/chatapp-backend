@@ -23,9 +23,10 @@ app.use(cors({
 app.use(express.json());
 
 // Routes
-app.use('/api/user', userRoutes);
+app.use("/api/user", userRoutes); 
 app.use('/api/chat', chatRoutes);
 app.use('/api/message', messageRoutes);
+console.log("Registered Routes:", app._router.stack.map(r => r.route && r.route.path));
 
 // Error Handling Middleware
 app.use(notFound);
