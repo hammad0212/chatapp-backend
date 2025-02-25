@@ -1,16 +1,18 @@
 import asyncHandler from "express-async-handler";
-import  Message from "../models/Messagemodel.js";
-import User from "../models/Usermodel.js"
-import Chat  from "../models/chatmodel.js"
+import Message from "../models/MessageModel.js";
+import User from "../models/Usermodel.js";
+import Chat from "../models/chatmodel.js";
 
-//@description     Get all Messages
-//@route           GET /api/Message/:chatId
-//@access          Protected
+// ✅ Get All Messages in a Chat
+// @route  GET /api/message/:chatId
+// @access Protected
 export const allMessages = asyncHandler(async (req, res) => {
   try {
     const messages = await Message.find({ chat: req.params.chatId })
       .populate("sender", "name pic email")
-      .populate("chat");
+      .populate("chat")
+      .exec(); // ✅ Added `.exec()` for better query execution
+
     res.json(messages);
   } catch (error) {
     res.status(400);
@@ -18,9 +20,9 @@ export const allMessages = asyncHandler(async (req, res) => {
   }
 });
 
-//@description     Create New Message
-//@route           POST /api/Message/
-//@access          Protected
+// ✅ Send a New Message
+// @route  POST /api/message
+// @access Protected
 export const sendMessage = asyncHandler(async (req, res) => {
   const { content, chatId } = req.body;
 
@@ -29,23 +31,25 @@ export const sendMessage = asyncHandler(async (req, res) => {
     return res.sendStatus(400);
   }
 
-  var newMessage = {
-    sender: req.user._id,
-    content: content,
-    chat: chatId,
-  };
-
   try {
-    var message = await Message.create(newMessage);
-
-    message = await message.populate("sender", "name pic").execPopulate();
-    message = await message.populate("chat").execPopulate();
-    message = await User.populate(message, {
-      path: "chat.users",
-      select: "name pic email",
+    let message = await Message.create({
+      sender: req.user._id,
+      content: content,
+      chat: chatId,
     });
 
-    await Chat.findByIdAndUpdate(req.body.chatId, { latestMessage: message });
+    // ✅ Corrected `.populate()` calls (removed `.execPopulate()`)
+    message = await Message.findById(message._id)
+      .populate("sender", "name pic")
+      .populate("chat")
+      .populate({
+        path: "chat.users",
+        select: "name pic email",
+      })
+      .exec();
+
+    // ✅ Update latest message in chat
+    await Chat.findByIdAndUpdate(chatId, { latestMessage: message });
 
     res.json(message);
   } catch (error) {
