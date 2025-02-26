@@ -23,9 +23,9 @@ app.use(cors({
 app.use(express.json());
 
 // Routes
-app.use("/api/user", userRoutes); 
-app.use('/api/chat', chatRoutes);
-app.use('/api/message', messageRoutes);
+app.use("/api/user", userRoutes);
+app.use("/api/chat", chatRoutes);
+app.use("/api/message", messageRoutes);
 console.log("Registered Routes:", app._router.stack.map(r => r.route && r.route.path));
 
 // Error Handling Middleware
@@ -39,28 +39,49 @@ const server = createServer(app);
 const io = new IOServer(server, {
   pingTimeout: 60000,
   cors: {
-    origin: "http://localhost:5173", // ✅ Allow frontend connection
+    origin: "http://localhost:5173",
     methods: ["GET", "POST"],
   },
 });
 
-// Socket.io Logic
+// Store typing users for each chat room
+const typingUsers = {};
+
+// ✅ Socket.io Logic
 io.on("connection", (socket) => {
   console.log("⚡ Connected to Socket.io");
 
+  // User setup
   socket.on("setup", (userData) => {
     socket.join(userData._id);
     socket.emit("connected");
   });
 
+  // User joins chat room
   socket.on("join chat", (room) => {
     socket.join(room);
     console.log(`👤 User joined room: ${room}`);
   });
 
-  socket.on("typing", (room) => socket.to(room).emit("typing"));
-  socket.on("stop typing", (room) => socket.to(room).emit("stop typing"));
+  // ✅ Handle typing feature correctly
+  socket.on("typing", (room, userId) => {
+    if (!typingUsers[room]) {
+      typingUsers[room] = new Set();
+    }
+    typingUsers[room].add(userId);
+    io.to(room).emit("typing", Array.from(typingUsers[room])); // Send list of typing users
+  });
 
+  socket.on("stop typing", (room, userId) => {
+    if (typingUsers[room]) {
+      typingUsers[room].delete(userId);
+      if (typingUsers[room].size === 0) {
+        io.to(room).emit("stop typing");
+      }
+    }
+  });
+
+  // ✅ Handle new messages & real-time updates
   socket.on("new message", (newMessageReceived) => {
     const chat = newMessageReceived.chat;
 
@@ -69,16 +90,16 @@ io.on("connection", (socket) => {
       return;
     }
 
-    chat.users.forEach((user) => {
-      if (user._id !== newMessageReceived.sender._id) {
-        socket.to(user._id).emit("message received", newMessageReceived);
-      }
-    });
+    // ✅ Emit to the entire chat room instead of individual users
+    io.to(chat._id).emit("message received", newMessageReceived);
+
+    // ✅ Stop typing when message is sent
+    io.to(chat._id).emit("stop typing");
   });
 
+  // Handle user disconnect
   socket.on("disconnect", () => {
     console.log("❌ User disconnected");
-    socket.leave(socket.id);
   });
 });
 
